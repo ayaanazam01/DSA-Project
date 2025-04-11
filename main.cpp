@@ -21,7 +21,7 @@ int main() {
         cin >> choice;
         switch (choice) {
             case 1:
-                budgetMenu();  // Function from budget_manager_2023049.cpp
+                budgetMenu();  // Function from budget_manager.cpp
                 break;
             case 2:
                 plagiarismMenu();  // Function from Plagiarism_detector.cpp
