@@ -1,0 +1,315 @@
+#include <iostream>
+#include <thread>
+#include <chrono>
+#include <climits>
+#include <limits>
+using namespace std;
+
+string PriorityNames[5];
+int PriorityRank[5] = {0};
+
+struct Stack_Node {
+    int priorityrank_stack;
+    Stack_Node *next;
+};
+
+class Stack {
+public:
+    Stack_Node *top = NULL;
+
+    void push(int val) {
+        Stack_Node *newnode = new Stack_Node;
+        newnode->priorityrank_stack = val;
+        newnode->next = top;
+        top = newnode;
+    }
+
+    int pop() {
+        if (top == NULL) {
+            cout << "Stack Underflow" << endl;
+            return -1;
+        } else {
+            int temp = top->priorityrank_stack;
+            top = top->next;
+            return temp;
+        }
+    }
+
+    void display() {
+        Stack_Node *ptr;
+        if (top == NULL) {
+            cout << "History is empty" << endl;
+        } else {
+            ptr = top;
+            cout << "History of accessed nodes (in terms of Priority Rank): ";
+            while (ptr != NULL) {
+                cout << ptr->priorityrank_stack << ", ";
+                ptr = ptr->next;
+            }
+        }
+        cout << endl;
+    }
+};
+
+class Priority {
+public:
+    string priorityname;
+    int priorityrank, subdivision, division, divisionbudget, subdivisionbudget;
+    float prioritybudget;
+
+    Priority() {
+        priorityrank = 0;
+        division = 0;
+        subdivision = 0;
+        divisionbudget = 0;
+        subdivisionbudget = 0;
+    }
+
+    int Calcdivbudget(int prbudget, int d) {
+        if (d == 0) return 0;
+        return (d == 1) ? prbudget / 30 : prbudget / 4;
+    }
+
+    int Calcsubdivbudget(int d_budget, int s_div) {
+        if (s_div == 0) return 0;
+        return d_budget / s_div;
+    }
+
+    void SetValues_Preset(string name, int div, int subdiv, int prrank, int totalbudget) {
+        priorityname = name;
+        division = div;
+        subdivision = subdiv;
+        priorityrank = prrank;
+
+        float percentage[] = {0.4f, 0.25f, 0.15f, 0.10f, 0.10f};
+        prioritybudget = totalbudget * percentage[priorityrank - 1];
+
+        divisionbudget = Calcdivbudget(prioritybudget, division);
+        subdivisionbudget = Calcsubdivbudget(divisionbudget, subdivision);
+
+        PriorityNames[priorityrank - 1] = priorityname;
+        PriorityRank[priorityrank - 1] = priorityrank;
+    }
+
+    void SetValues_Custom(string name, int div, int subdiv, int prrank, int totalbudget, int prrank_allocation) {
+        priorityname = name;
+        division = div;
+        subdivision = subdiv;
+        priorityrank = prrank;
+
+        prioritybudget = totalbudget * (static_cast<double>(prrank_allocation) / 100);
+        divisionbudget = Calcdivbudget(prioritybudget, division);
+        subdivisionbudget = Calcsubdivbudget(divisionbudget, subdivision);
+
+        PriorityNames[priorityrank - 1] = priorityname;
+        PriorityRank[priorityrank - 1] = priorityrank;
+    }
+};
+
+struct PriorityNode {
+    Priority pr;
+    PriorityNode *next;
+    PriorityNode *prev;
+};
+
+class BudgetManager {
+public:
+    PriorityNode *head;
+    PriorityNode *tail;
+    Stack History;
+
+    BudgetManager() {
+        head = NULL;
+        tail = NULL;
+    }
+
+    void InsertNode(string name, int div, int subdiv, int prrank, int totalbudget, int budgetopt, int prrank_allocation) {
+        PriorityNode *newNode = new PriorityNode;
+
+        if (budgetopt == 1) {
+            newNode->pr.SetValues_Preset(name, div, subdiv, prrank, totalbudget);
+        } else {
+            newNode->pr.SetValues_Custom(name, div, subdiv, prrank, totalbudget, prrank_allocation);
+        }
+
+        newNode->next = head;
+        newNode->prev = NULL;
+
+        if (head != NULL) head->prev = newNode;
+        else tail = newNode;
+
+        head = newNode;
+        History.push(prrank);
+    }
+
+    void DisplayAllBudget(PriorityNode *node) {
+        if (node == NULL) return;
+
+        cout << "\nFor " << node->pr.priorityname << ":" << endl;
+        cout << "The monthly budget is: " << node->pr.prioritybudget << endl;
+
+        if (node->pr.divisionbudget != 0)
+            cout << "The budget of each division is: " << node->pr.divisionbudget << endl;
+        if (node->pr.subdivisionbudget != 0)
+            cout << "The budget of each subdivision is: " << node->pr.subdivisionbudget << endl;
+
+        History.push(node->pr.priorityrank);
+        DisplayAllBudget(node->next);
+    }
+
+    void SearchDisplaybudget(string searchName) {
+        bool found = false;
+        for (int i = 0; i < 5; i++) {
+            if (searchName == PriorityNames[i]) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            cout << "No such priority found." << endl;
+            return;
+        }
+
+        PriorityNode *current = head;
+        while (current != NULL) {
+            if (current->pr.priorityname == searchName) {
+                cout << "Priority Name: " << current->pr.priorityname << endl;
+                cout << "Priority Rank: " << current->pr.priorityrank << endl;
+                cout << "Monthly Budget: " << current->pr.prioritybudget << endl;
+                if (current->pr.divisionbudget != 0)
+                    cout << "Division Budget (" << (current->pr.division == 1 ? "Daily" : "Weekly") << "): " << current->pr.divisionbudget << endl;
+                if (current->pr.subdivisionbudget != 0)
+                    cout << "Subdivision Budget: " << current->pr.subdivisionbudget << endl;
+
+                History.push(current->pr.priorityrank);
+                break;
+            }
+            current = current->next;
+        }
+    }
+};
+
+// Helper input with validation
+int getIntInput(string prompt, int min = INT_MIN, int max = INT_MAX) {
+    int input;
+    while (true) {
+        cout << prompt;
+        if (cin >> input && input >= min && input <= max) {
+            return input;
+        } else {
+            cout << "Invalid input. Try again." << endl;
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        }
+    }
+}
+
+// Check if name already exists
+bool isNameDuplicate(string name) {
+    for (int i = 0; i < 5; i++) {
+        if (PriorityNames[i] == name) return true;
+    }
+    return false;
+}
+
+void BM_display() {
+    BudgetManager B;
+    int total_allocated_budget = getIntInput("Enter your total budget: ", 1);
+
+    cout << "\nBudget options:\n1 - Preset (40-25-15-10-10)\n2 - Custom Percentages\n";
+    int chosen_budget_option = getIntInput("Choose your option (1 or 2): ", 1, 2);
+
+    if (chosen_budget_option == 1) {
+        cout << "Using Preset Option. You must enter 5 unique priorities.\n";
+        for (int i = 0; i < 5; i++) {
+            string name;
+            int chosen_division, chosen_subdivision, chosen_rank;
+
+            do {
+                cout << "\nEnter unique priority name: ";
+                cin >> name;
+                if (isNameDuplicate(name)) cout << "This name already exists. Try another.\n";
+            } while (isNameDuplicate(name));
+
+            chosen_division = getIntInput("Enter division (0=skip, 1=daily, 2=weekly): ", 0, 2);
+            chosen_subdivision = getIntInput("Enter number of subdivisions (0-50): ", 0, 50);
+
+            do {
+                chosen_rank = getIntInput("Enter a unique rank for this priority (1-5): ", 1, 5);
+                if (PriorityRank[chosen_rank - 1] != 0)
+                    cout << "This rank is already taken. Try a different one.\n";
+            } while (PriorityRank[chosen_rank - 1] != 0);
+
+            B.InsertNode(name, chosen_division, chosen_subdivision, chosen_rank, total_allocated_budget, chosen_budget_option, 0);
+        }
+    } else {
+        int priority_rank_budgetallocation[5], sum_check = 0;
+
+        for (int i = 0; i < 5; i++) {
+            int input;
+            do {
+                input = getIntInput("Enter percentage for priority rank " + to_string(i + 1) + ": ", 0, 100);
+                if (sum_check + input > 100)
+                    cout << "Total exceeds 100%. Try again.\n";
+            } while (sum_check + input > 100);
+            priority_rank_budgetallocation[i] = input;
+            sum_check += input;
+        }
+
+        if (sum_check != 100) {
+            cout << "Total must be 100. Program exiting in 5 seconds...\n";
+            this_thread::sleep_for(chrono::seconds(5));
+            return;
+        }
+
+        for (int i = 0; i < 5; i++) {
+            string name;
+            int chosen_division, chosen_subdivision;
+
+            do {
+                cout << "\nEnter unique priority name: ";
+                cin >> name;
+                if (isNameDuplicate(name)) cout << "This name already exists. Try another.\n";
+            } while (isNameDuplicate(name));
+
+            chosen_division = getIntInput("Enter division (0=skip, 1=daily, 2=weekly): ", 0, 2);
+            chosen_subdivision = getIntInput("Enter number of subdivisions (0-50): ", 0, 50);
+
+            B.InsertNode(name, chosen_division, chosen_subdivision, i + 1, total_allocated_budget, chosen_budget_option, priority_rank_budgetallocation[i]);
+        }
+    }
+
+    int finalopt;
+    do {
+        cout << "\n1. Display all budgets\n2. Search priority by name\n3. Show history\n4. Exit\n";
+        finalopt = getIntInput("Choose an option (1-4): ", 1, 4);
+
+        if (finalopt == 1) B.DisplayAllBudget(B.head);
+        else if (finalopt == 2) {
+            string nametosearch;
+            cout << "Enter name to search: ";
+            cin >> nametosearch;
+            B.SearchDisplaybudget(nametosearch);
+        } else if (finalopt == 3) B.History.display();
+
+    } while (finalopt != 4);
+}
+
+int main() {
+    int choice;
+
+    do {
+        cout << "\n===== Student Helper Program =====\n";
+        cout << "1. Budget Manager\n2. Plagiarism Detector (WIP)\n3. Time Manager (WIP)\n4. Exit\n";
+        choice = getIntInput("Enter your choice: ", 1, 4);
+
+        switch (choice) {
+            case 1: BM_display(); break;
+            case 2: cout << "Plagiarism Detector is under development.\n"; break;
+            case 3: cout << "Time Manager is under development.\n"; break;
+            case 4: cout << "Exiting program...\n"; break;
+        }
+    } while (choice != 4);
+
+    return 0;
+}
